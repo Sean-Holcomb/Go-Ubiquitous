@@ -5,4 +5,13 @@
     <dimen name="digital_x_offset">15dp</dimen>
     <dimen name="digital_x_offset_round">25dp</dimen>
     <dimen name="digital_y_offset">90dp</dimen>
+
+    <!--Layout dimens -->
+    <dimen name="line_length">32dp</dimen>
+    <dimen name="icon_size">40dp</dimen>
+    <dimen name="time_size">40sp</dimen>
+    <dimen name="date_size">16sp</dimen>
+    <dimen name="temp_size">24sp</dimen>
+    <dimen name="date_padding">8dp</dimen>
+    <dimen name="weather_padding">8dp</dimen>
 </resources>

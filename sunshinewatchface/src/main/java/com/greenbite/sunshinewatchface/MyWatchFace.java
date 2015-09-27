@@ -22,7 +22,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.Typeface;
@@ -31,7 +30,6 @@ import android.os.Handler;
 import android.os.Message;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
-import android.text.format.Time;
 import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.SurfaceHolder;
@@ -41,6 +39,7 @@ import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -48,6 +47,8 @@ import java.util.concurrent.TimeUnit;
  * Digital watch face with seconds. In ambient mode, the seconds aren't displayed. On devices with
  * low-bit ambient mode, the text is drawn without anti-aliasing in ambient mode.
  */
+//Switched to layout inflation instead of canvas drawn using this guide
+// https://sterlingudell.wordpress.com/2015/05/10/layout-based-watch-faces-for-android-wear/
 public class MyWatchFace extends CanvasWatchFaceService {
     private static final Typeface NORMAL_TYPEFACE =
             Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL);
@@ -89,8 +90,8 @@ public class MyWatchFace extends CanvasWatchFaceService {
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                mTime.clear(intent.getStringExtra("time-zone"));
-                mTime.setToNow();
+                mCalendar.setTimeZone(TimeZone.getDefault());
+                invalidate();
             }
         };
 
@@ -99,7 +100,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
         boolean mAmbient;
 
-        Time mTime;
+        Calendar mCalendar;
 
         private int specW, specH;
         private View mLayout;
@@ -132,7 +133,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
             mYOffset = resources.getDimension(R.dimen.digital_y_offset);
 
 
-            mTime = new Time();
+            mCalendar = Calendar.getInstance();
 
             LayoutInflater inflater =
                     (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
@@ -169,8 +170,9 @@ public class MyWatchFace extends CanvasWatchFaceService {
                 registerReceiver();
 
                 // Update time zone in case it changed while we weren't visible.
-                mTime.clear(TimeZone.getDefault().getID());
-                mTime.setToNow();
+
+                mCalendar.setTimeZone(TimeZone.getDefault());
+                invalidate();
             } else {
                 unregisterReceiver();
             }
@@ -237,12 +239,23 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
 
             // Draw H:MM in ambient mode or H:MM:SS in interactive mode.
-            mTime.setToNow();
+            mCalendar.setTimeInMillis(System.currentTimeMillis());
+            String timeString="";
+            if (mCalendar.get(Calendar.MINUTE) < 10) {
+                 timeString = mCalendar.get(Calendar.HOUR_OF_DAY) + ":0" + mCalendar.get(Calendar.MINUTE);
+            }else{
+                timeString = mCalendar.get(Calendar.HOUR_OF_DAY) + ":" + mCalendar.get(Calendar.MINUTE);
+            }
+            time.setText(timeString);
+            date.setText("date");
+            high.setText("high");
+            low.setText("low");
+            imageView.setImageResource(R.drawable.art_clear);
 
             mLayout.measure(specW, specH);
             mLayout.layout(0, 0, mLayout.getMeasuredWidth(),
                     mLayout.getMeasuredHeight());
-            canvas.drawColor(Color.BLACK);
+            //canvas.drawColor(Color.BLACK);
             mLayout.draw(canvas);
         }
 
