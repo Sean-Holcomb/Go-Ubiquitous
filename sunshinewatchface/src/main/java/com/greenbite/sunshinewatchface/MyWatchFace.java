@@ -240,14 +240,16 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
             // Draw H:MM in ambient mode or H:MM:SS in interactive mode.
             mCalendar.setTimeInMillis(System.currentTimeMillis());
-            String timeString="";
+            String timeString;
+            String dateString;
             if (mCalendar.get(Calendar.MINUTE) < 10) {
                  timeString = mCalendar.get(Calendar.HOUR_OF_DAY) + ":0" + mCalendar.get(Calendar.MINUTE);
             }else{
                 timeString = mCalendar.get(Calendar.HOUR_OF_DAY) + ":" + mCalendar.get(Calendar.MINUTE);
             }
+            dateString=getDate(mCalendar);
             time.setText(timeString);
-            date.setText("date");
+            date.setText(dateString);
             high.setText("high");
             low.setText("low");
             imageView.setImageResource(R.drawable.art_clear);
@@ -257,6 +259,77 @@ public class MyWatchFace extends CanvasWatchFaceService {
                     mLayout.getMeasuredHeight());
             //canvas.drawColor(Color.BLACK);
             mLayout.draw(canvas);
+        }
+
+        public String getDate(Calendar calendar){
+            String stringDate;
+            switch(calendar.get(Calendar.DAY_OF_WEEK)){
+                case 1:
+                    stringDate="SUN, ";
+                    break;
+                case 2:
+                    stringDate="MON, ";
+                    break;
+                case 3:
+                    stringDate="TUE, ";
+                    break;
+                case 4:
+                    stringDate="WED, ";
+                    break;
+                case 5:
+                    stringDate="THU, ";
+                    break;
+                case 6:
+                    stringDate="FRI, ";
+                    break;
+                case 7:
+                    stringDate="SAT, ";
+                    break;
+                default:
+                    stringDate="";
+            }
+            switch (calendar.get(Calendar.MONTH)){
+                case 0:
+                    stringDate=stringDate+"JAN ";
+                    break;
+                case 1:
+                    stringDate=stringDate+"FEB ";
+                    break;
+                case 2:
+                    stringDate=stringDate+"MAR ";
+                    break;
+                case 3:
+                    stringDate=stringDate+"APR ";
+                    break;
+                case 4:
+                    stringDate=stringDate+"MAY ";
+                    break;
+                case 5:
+                    stringDate=stringDate+"JUN ";
+                    break;
+                case 6:
+                    stringDate=stringDate+"JUL ";
+                    break;
+                case 7:
+                    stringDate=stringDate+"AUG ";
+                    break;
+                case 8:
+                    stringDate=stringDate+"SEP ";
+                    break;
+                case 9:
+                    stringDate=stringDate+"OCT ";
+                    break;
+                case 10:
+                    stringDate=stringDate+"NOV ";
+                    break;
+                case 11:
+                    stringDate=stringDate+"DEC ";
+                    break;
+                default:
+                    break;
+            }
+            stringDate=stringDate+ calendar.get(Calendar.DAY_OF_MONTH)+ " " + calendar.get(Calendar.YEAR);
+            return stringDate;
         }
 
         /**
