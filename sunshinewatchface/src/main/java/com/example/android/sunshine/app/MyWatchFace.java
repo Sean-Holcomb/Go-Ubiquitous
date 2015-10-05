@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.greenbite.sunshinewatchface;
+package com.example.android.sunshine.app;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -30,6 +30,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
+import android.util.Log;
 import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.SurfaceHolder;
@@ -38,6 +39,16 @@ import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataEvent;
+import com.google.android.gms.wearable.DataEventBuffer;
+import com.google.android.gms.wearable.DataItem;
+import com.google.android.gms.wearable.DataMap;
+import com.google.android.gms.wearable.DataMapItem;
+import com.google.android.gms.wearable.Wearable;
 
 import java.util.Calendar;
 import java.util.TimeZone;
@@ -64,9 +75,10 @@ public class MyWatchFace extends CanvasWatchFaceService {
         return new Engine();
     }
 
-    private class Engine extends CanvasWatchFaceService.Engine {
+    private class Engine extends CanvasWatchFaceService.Engine implements DataApi.DataListener,
+            GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener{
         static final int MSG_UPDATE_TIME = 0;
-
+        private final String TAG=Engine.class.getSimpleName();
         /**
          * Handler to update the time periodically in interactive mode.
          */
@@ -113,6 +125,14 @@ public class MyWatchFace extends CanvasWatchFaceService {
         private final Point displaySize = new Point();
         float mXOffset;
         float mYOffset;
+        private int highTemp=0;
+        private int lowTemp=0;
+        private int iconInt;
+        private GoogleApiClient mGoogleApiClient;
+        private final String PATH = "/watch_face/data";
+        private final String KEY_WEATHER_ID = "weather_id";
+        private final String KEY_TEMP_HIGH = "temp_high";
+        private final String KEY_TEMP_LOW = "temp_low";
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -153,8 +173,59 @@ public class MyWatchFace extends CanvasWatchFaceService {
             high = (TextView) mLayout.findViewById(R.id.high);
             low = (TextView) mLayout.findViewById(R.id.low);
             imageView = (ImageView) mLayout.findViewById(R.id.image);
+            iconInt = R.drawable.art_clear;
+            mGoogleApiClient = new GoogleApiClient.Builder(MyWatchFace.this)
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .addApi(Wearable.API)
+                    .build();
+            mGoogleApiClient.connect();
         }
 
+        @Override
+        public void onConnected(Bundle bundle) {
+            Wearable.DataApi.addListener(mGoogleApiClient, this);
+            Log.e(TAG, "connected");
+        }
+        @Override
+        public void onConnectionSuspended(int cause) {
+            Log.e(TAG, "Suspended: " + String.valueOf(cause));
+
+        }
+
+        @Override
+        public void onConnectionFailed(ConnectionResult result) {
+            Log.e(TAG, "ConnectionFailed: " + result);
+
+        }
+        //https://developer.android.com/training/wearables/data-layer/data-items.html
+        @Override
+        public void onDataChanged(DataEventBuffer dataEvents) {
+            for (DataEvent event : dataEvents) {
+                if (event.getType() == DataEvent.TYPE_CHANGED) {
+                    // DataItem changed
+                    DataItem item = event.getDataItem();
+                    if (item.getUri().getPath().equals(PATH)) {
+                        DataMap dataMap = DataMapItem.fromDataItem(item).getDataMap();
+                        updateWeather(dataMap);
+                    }
+                } else if (event.getType() == DataEvent.TYPE_DELETED) {
+                    // DataItem deleted
+                }
+            }
+        }
+
+        public void updateWeather(DataMap dataMap){
+            if (dataMap != null){
+                if(dataMap.containsKey(KEY_TEMP_HIGH)
+                        && dataMap.containsKey(KEY_TEMP_HIGH)
+                        && dataMap.containsKey(KEY_TEMP_HIGH)){
+                    highTemp = (int) dataMap.getDouble(KEY_TEMP_HIGH);
+                    lowTemp = (int)dataMap.getDouble(KEY_TEMP_LOW);
+                    iconInt = getIcon(dataMap.getInt(KEY_WEATHER_ID));
+                }
+            }
+        }
         @Override
         public void onDestroy() {
             mUpdateTimeHandler.removeMessages(MSG_UPDATE_TIME);
@@ -167,14 +238,19 @@ public class MyWatchFace extends CanvasWatchFaceService {
             super.onVisibilityChanged(visible);
 
             if (visible) {
-                registerReceiver();
 
+                registerReceiver();
+                mGoogleApiClient.connect();
                 // Update time zone in case it changed while we weren't visible.
 
                 mCalendar.setTimeZone(TimeZone.getDefault());
                 invalidate();
             } else {
                 unregisterReceiver();
+                if (mGoogleApiClient != null && mGoogleApiClient.isConnected()){
+                    mGoogleApiClient.disconnect();
+                    Wearable.DataApi.removeListener(mGoogleApiClient, this);
+                }
             }
 
             // Whether the timer should be running depends on whether we're visible (as well as
@@ -236,8 +312,6 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
         @Override
         public void onDraw(Canvas canvas, Rect bounds) {
-
-
             // Draw H:MM in ambient mode or H:MM:SS in interactive mode.
             mCalendar.setTimeInMillis(System.currentTimeMillis());
             String timeString;
@@ -250,9 +324,9 @@ public class MyWatchFace extends CanvasWatchFaceService {
             dateString=getDate(mCalendar);
             time.setText(timeString);
             date.setText(dateString);
-            high.setText("high");
-            low.setText("low");
-            imageView.setImageResource(R.drawable.art_clear);
+            high.setText(highTemp + "\u00B0");
+            low.setText(lowTemp + "\u00B0");
+            imageView.setImageResource(iconInt);
 
             mLayout.measure(specW, specH);
             mLayout.layout(0, 0, mLayout.getMeasuredWidth(),
@@ -331,6 +405,35 @@ public class MyWatchFace extends CanvasWatchFaceService {
             stringDate=stringDate+ calendar.get(Calendar.DAY_OF_MONTH)+ " " + calendar.get(Calendar.YEAR);
             return stringDate;
         }
+        //from app Utility
+        public int getIcon(int weatherId) {
+            // Based on weather code data found at:
+            // http://bugs.openweathermap.org/projects/api/wiki/Weather_Condition_Codes
+            if (weatherId >= 200 && weatherId <= 232) {
+                return R.drawable.ic_storm;
+            } else if (weatherId >= 300 && weatherId <= 321) {
+                return R.drawable.ic_light_rain;
+            } else if (weatherId >= 500 && weatherId <= 504) {
+                return R.drawable.ic_rain;
+            } else if (weatherId == 511) {
+                return R.drawable.ic_snow;
+            } else if (weatherId >= 520 && weatherId <= 531) {
+                return R.drawable.ic_rain;
+            } else if (weatherId >= 600 && weatherId <= 622) {
+                return R.drawable.ic_snow;
+            } else if (weatherId >= 701 && weatherId <= 761) {
+                return R.drawable.ic_fog;
+            } else if (weatherId == 761 || weatherId == 781) {
+                return R.drawable.ic_storm;
+            } else if (weatherId == 800) {
+                return R.drawable.ic_clear;
+            } else if (weatherId == 801) {
+                return R.drawable.ic_light_clouds;
+            } else if (weatherId >= 802 && weatherId <= 804) {
+                return R.drawable.ic_cloudy;
+            }
+            return -1;
+        }
 
         /**
          * Starts the {@link #mUpdateTimeHandler} timer if it should be running and isn't currently
@@ -350,5 +453,6 @@ public class MyWatchFace extends CanvasWatchFaceService {
         private boolean shouldTimerBeRunning() {
             return isVisible() && !isInAmbientMode();
         }
+
     }
 }

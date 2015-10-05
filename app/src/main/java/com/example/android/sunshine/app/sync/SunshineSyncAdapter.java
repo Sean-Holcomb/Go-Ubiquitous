@@ -35,6 +35,13 @@ import com.example.android.sunshine.app.R;
 import com.example.android.sunshine.app.Utility;
 import com.example.android.sunshine.app.data.WeatherContract;
 import com.example.android.sunshine.app.muzei.WeatherMuzeiSource;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataMap;
+import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.Wearable;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -61,6 +68,15 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
     public static final int SYNC_FLEXTIME = SYNC_INTERVAL/3;
     private static final long DAY_IN_MILLIS = 1000 * 60 * 60 * 24;
     private static final int WEATHER_NOTIFICATION_ID = 3004;
+
+    //Watch Vars
+    private final String PATH = "/watch_face/data";
+    private final String KEY_WEATHER_ID = "weather_id";
+    private final String KEY_TEMP_HIGH = "temp_high";
+    private final String KEY_TEMP_LOW = "temp_low";
+    private int mWeatherId;
+    private double mTempHigh;
+    private double mTempLow;
 
 
     private static final String[] NOTIFY_WEATHER_PROJECTION = new String[] {
@@ -312,7 +328,11 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
                 JSONObject temperatureObject = dayForecast.getJSONObject(OWM_TEMPERATURE);
                 high = temperatureObject.getDouble(OWM_MAX);
                 low = temperatureObject.getDouble(OWM_MIN);
-
+                if (i ==0) {
+                    mTempHigh = high;
+                    mTempLow = low;
+                    mWeatherId = weatherId;
+                }
                 ContentValues weatherValues = new ContentValues();
 
                 weatherValues.put(WeatherContract.WeatherEntry.COLUMN_LOC_KEY, locationId);
@@ -339,9 +359,9 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
                 // delete old data so we don't build up an endless history
                 getContext().getContentResolver().delete(WeatherContract.WeatherEntry.CONTENT_URI,
                         WeatherContract.WeatherEntry.COLUMN_DATE + " <= ?",
-                        new String[] {Long.toString(dayTime.setJulianDay(julianStartDay-1))});
-
+                        new String[]{Long.toString(dayTime.setJulianDay(julianStartDay - 1))});
                 updateWidgets();
+                updateWatchFace();
                 updateMuzei();
                 notifyWeather();
             }
@@ -361,6 +381,15 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
         Intent dataUpdatedIntent = new Intent(ACTION_DATA_UPDATED)
                 .setPackage(context.getPackageName());
         context.sendBroadcast(dataUpdatedIntent);
+    }
+
+    private void updateWatchFace () {
+        PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(PATH);
+        DataMap dataMap = putDataMapRequest.getDataMap();
+        dataMap.putDouble(KEY_TEMP_HIGH, mTempHigh);
+        dataMap.putDouble(KEY_TEMP_LOW, mTempLow);
+        dataMap.putInt(KEY_WEATHER_ID, mWeatherId);
+        new SunshineWatchFaceUpdater(getContext(), putDataMapRequest);
     }
 
     private void updateMuzei() {
@@ -632,5 +661,41 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
         SharedPreferences.Editor spe = sp.edit();
         spe.putInt(c.getString(R.string.pref_location_status_key), locationStatus);
         spe.commit();
+    }
+
+    class SunshineWatchFaceUpdater implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
+        private final String TAG = SunshineWatchFaceUpdater.class.getSimpleName();
+        private GoogleApiClient mGoogleApiClient;
+        private PutDataMapRequest mPutDataMapRequest;
+
+        public SunshineWatchFaceUpdater (Context context, PutDataMapRequest putDataMapRequest) {
+            mPutDataMapRequest = putDataMapRequest;
+            mGoogleApiClient = new GoogleApiClient.Builder(context)
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .addApi(Wearable.API)
+                    .build();
+            mGoogleApiClient.connect();
+        }
+
+        @Override
+        public void onConnected(Bundle connectionHint) {
+            Wearable.DataApi.putDataItem(mGoogleApiClient, mPutDataMapRequest.asPutDataRequest())
+                    .setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
+                        @Override
+                        public void onResult(DataApi.DataItemResult dataItemResult) {
+                        }
+                    });
+        }
+
+        @Override
+        public void onConnectionSuspended(int cause) {
+                Log.e(TAG, "Susoended: " + String.valueOf(cause));
+        }
+
+        @Override
+        public void onConnectionFailed(ConnectionResult result) {
+                Log.e(TAG, "ConnectionFailed: " + result);
+        }
     }
 }
