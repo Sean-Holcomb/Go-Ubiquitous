@@ -157,7 +157,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
             LayoutInflater inflater =
                     (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-            mLayout = inflater.inflate(R.layout.rect_watchface, null);
+            mLayout = inflater.inflate(R.layout.round_watchface, null);
 
             Display display = ((WindowManager) getSystemService(Context.WINDOW_SERVICE))
                     .getDefaultDisplay();
