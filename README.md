@@ -1,3 +1,6 @@
+#Go Ubiquitous
+Udacity Android Developer Nanodegree project. Added a simple watch face that displays weather data from starter app.
+
 Advanced Android Sample App
 ===================================
 
